@@ -1,87 +1,31 @@
-import faiss
-import numpy as np
-import pickle
 import os
-from sentence_transformers import SentenceTransformer
-import re
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
+# storage
 documents = []
-
-index = faiss.IndexFlatL2(384)
-
-# absolute path to vector_db
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-VECTOR_DIR = os.path.join(BASE_DIR, "vector_db")
-
-os.makedirs(VECTOR_DIR, exist_ok=True)
-
-INDEX_FILE = os.path.join(VECTOR_DIR, "index.faiss")
-DOC_FILE = os.path.join(VECTOR_DIR, "docs.npy")
-
+vectorizer = TfidfVectorizer()
+vectors = None
 
 def add_documents(chunks):
-
-    global documents, index
-
-    # ensure vector_db directory exists
-    os.makedirs(VECTOR_DIR, exist_ok=True)
-
-    # DEBUG
-    print("VECTOR DIR:", VECTOR_DIR)
-
-    # test file write permission
-    test_file = os.path.join(VECTOR_DIR, "test.txt")
-    with open(test_file, "w") as f:
-        f.write("test")
-
-    embeddings = model.encode(chunks)
-
-    index.add(np.array(embeddings))
+    global documents, vectors
 
     documents.extend(chunks)
 
-    # save FAISS index
-    faiss.write_index(index, INDEX_FILE)
-    np.save(DOC_FILE, documents)
-
-    # save docs
-    with open(DOC_FILE, "wb") as f:
-        pickle.dump(documents, f)
-
-
-def load_index():
-
-    global documents, index
-
-    os.makedirs(VECTOR_DIR, exist_ok=True)
-
-    if os.path.exists(INDEX_FILE):
-
-        index = faiss.read_index(INDEX_FILE)
-
-        if os.path.exists(DOC_FILE):
-
-            with open(DOC_FILE, "rb") as f:
-                documents = pickle.load(f)
+    # create embeddings
+    vectors = vectorizer.fit_transform(documents)
 
 def search(query):
+    global vectors
 
-    if len(documents) == 0:
-        return "No textbook uploaded yet."
+    if vectors is None or len(documents) == 0:
+        return "No data available"
 
-    q_embed = model.encode([query])
-    D, I = index.search(np.array(q_embed), 1)
+    query_vec = vectorizer.transform([query])
 
-    chunk = documents[I[0][0]]
+    scores = cosine_similarity(query_vec, vectors)
 
-    # split chunk into sentences
-    sentences = re.split(r'(?<=[.!?]) +', chunk)
+    best_index = np.argmax(scores)
 
-    # return the most relevant sentence
-    for s in sentences:
-        if any(word.lower() in s.lower() for word in query.split()):
-            return s
-
-    return sentences[0]
+    return documents[best_index]
