@@ -33,7 +33,7 @@ app.post("/upload", upload.single("file"), async (req,res)=>{
     form.append("file", fs.createReadStream(req.file.path))
 
     await axios.post(
-      "http://127.0.0.1:8000/upload",
+      "https://rag-new-ce01.onrender.com/upload",
       form,
       { headers: form.getHeaders() }
     )
@@ -60,7 +60,7 @@ app.post("/chat", async (req,res)=>{
 
   try{
 
-    const rag = await axios.post("http://127.0.0.1:8000/ask",{
+    const rag = await axios.post("https://rag-new-ce01.onrender.com/ask",{
       question:question
     })
 
