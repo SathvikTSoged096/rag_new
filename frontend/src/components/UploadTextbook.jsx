@@ -22,7 +22,7 @@ export default function UploadTextbook(){
     try{
 
       const res = await axios.post(
-        "https://rag-new-ecjb.onrender.com/upload",
+        "https://rag-new-p9g6.onrender.com/upload",
         formData,
         {
           headers:{
