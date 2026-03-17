@@ -35,7 +35,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         if t:
             text += t
 
-    chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+     chunks = chunks = text.split("\n\n")
 
     add_documents(chunks)
 
