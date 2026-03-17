@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pypdf
 sentence-transformers
+torch==2.0.1+cpu
 faiss-cpu
 numpy
 python-multipart
