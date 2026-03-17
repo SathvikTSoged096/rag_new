@@ -21,7 +21,7 @@ setLoading(true)
 
 try{
 
-const res = await axios.post("https://rag-new-ecjb.onrender.com/chat",{
+const res = await axios.post("https://rag-new-p9g6.onrender.com/chat",{
 question,
 user_id:1
 })
