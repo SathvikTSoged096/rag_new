@@ -1,97 +1,105 @@
 import axios from "axios"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
-const [question,setQuestion] = useState("")
-const [messages,setMessages] = useState([])
-const [loading,setLoading] = useState(false)
+  const [question,setQuestion] = useState("")
+  const [messages,setMessages] = useState([])
+  const [loading,setLoading] = useState(false)
 
-const askAI = async ()=>{
+  const bottomRef = useRef(null)
 
-if(!question.trim()) return
+  // auto scroll to latest message
+  useEffect(()=>{
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  },[messages, loading])
 
-const userMsg = {role:"user",text:question}
+  const askAI = async ()=>{
 
-setMessages(prev=>[...prev,userMsg])
+    if(!question.trim()) return
 
-setQuestion("")
+    const userMsg = {role:"user", text:question}
 
-setLoading(true)
+    setMessages(prev => [...prev, userMsg])
+    setQuestion("")
+    setLoading(true)
 
-try{
+    try{
 
-const res = await axios.post("https://rag-new-p9g6.onrender.com/chat",{
-question,
-user_id:1
-})
+      const res = await axios.post(
+        "https://rag-new-p9g6.onrender.com/chat",
+        {
+          question,
+          user_id:1
+        }
+      )
 
-const botMsg = {
-role:"bot",
-text:res.data.answer
-}
+      const botMsg = {
+        role:"bot",
+        text:res.data.answer
+      }
 
-setMessages(prev=>[...prev,botMsg])
+      setMessages(prev => [...prev, botMsg])
 
-}catch(err){
+    }catch(err){
 
-setMessages(prev=>[
-...prev,
-{role:"bot",text:"AI service not reachable"}
-])
+      console.error(err)
 
-}
+      setMessages(prev => [
+        ...prev,
+        {role:"bot", text:"AI service not reachable"}
+      ])
 
-setLoading(false)
+    }
 
-}
+    setLoading(false)
+  }
 
-return(
+  return(
 
-<div className="chat-wrapper">
+    <div className="chat-wrapper">
 
-<div className="chat-header">
-LMS AI Assistant
-</div>
+      <div className="chat-header">
+        LMS AI Assistant
+      </div>
 
-<div className="chat-messages">
+      <div className="chat-messages">
 
-{messages.map((m,i)=>(
-<div key={i} className={m.role==="user"?"message user":"message bot"}>
-{m.text}
-</div>
-))}
+        {messages.map((m,i)=>(
+          <div key={i} className={`message ${m.role}`}>
+            {m.text}
+          </div>
+        ))}
 
-{/* typing animation */}
-{loading && (
-<div className="message bot typing">
-AI is thinking<span className="dots"></span>
-</div>
-)}
+        {loading && (
+          <div className="message bot typing">
+            AI is thinking<span className="dots"></span>
+          </div>
+        )}
 
-</div>
+        <div ref={bottomRef}></div>
 
-<div className="chat-input-area">
+      </div>
 
-<input
-className="chat-input"
-placeholder="Ask about electronics, math..."
-value={question}
-onChange={(e)=>setQuestion(e.target.value)}
-onKeyDown={(e)=> e.key==="Enter" && askAI()}
-/>
+      <div className="chat-input-area">
 
-<button
-className="send-btn"
-onClick={askAI}
->
-Send
-</button>
+        <input
+          className="chat-input"
+          placeholder="Ask about electronics, math..."
+          value={question}
+          onChange={(e)=>setQuestion(e.target.value)}
+          onKeyDown={(e)=> e.key==="Enter" && askAI()}
+        />
 
-</div>
+        <button
+          className="send-btn"
+          onClick={askAI}
+        >
+          Send
+        </button>
 
-</div>
+      </div>
 
-)
-
+    </div>
+  )
 }
