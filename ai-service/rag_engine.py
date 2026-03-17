@@ -15,8 +15,10 @@ index = faiss.IndexFlatL2(384)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VECTOR_DIR = os.path.join(BASE_DIR, "vector_db")
 
+os.makedirs(VECTOR_DIR, exist_ok=True)
+
 INDEX_FILE = os.path.join(VECTOR_DIR, "index.faiss")
-DOC_FILE = os.path.join(VECTOR_DIR, "docs.pkl")
+DOC_FILE = os.path.join(VECTOR_DIR, "docs.npy")
 
 
 def add_documents(chunks):
@@ -42,6 +44,7 @@ def add_documents(chunks):
 
     # save FAISS index
     faiss.write_index(index, INDEX_FILE)
+    np.save(DOC_FILE, documents)
 
     # save docs
     with open(DOC_FILE, "wb") as f:
