@@ -10,6 +10,7 @@ app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
+# ensure uploads folder exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class Query(BaseModel):
@@ -35,7 +36,8 @@ async def upload_pdf(file: UploadFile = File(...)):
         if t:
             text += t
 
-     chunks = text.split("\n\n")
+    # split into chunks (clean + correct)
+    chunks = text.split("\n\n")
 
     add_documents(chunks)
 
