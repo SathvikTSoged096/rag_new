@@ -1,31 +1,48 @@
-import os
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # storage
 documents = []
-vectorizer = TfidfVectorizer()
+
+# better vectorizer (removes common words)
+vectorizer = TfidfVectorizer(stop_words="english")
+
 vectors = None
+
 
 def add_documents(chunks):
     global documents, vectors
 
-    documents.extend(chunks)
+    # clean chunks (remove empty text)
+    clean_chunks = [c.strip() for c in chunks if c.strip()]
+
+    documents.extend(clean_chunks)
 
     # create embeddings
     vectors = vectorizer.fit_transform(documents)
+
 
 def search(query):
     global vectors
 
     if vectors is None or len(documents) == 0:
-        return "No data available"
+        return "No data available. Please upload a textbook first."
 
+    # convert query to vector
     query_vec = vectorizer.transform([query])
 
-    scores = cosine_similarity(query_vec, vectors)
+    # similarity scores
+    scores = cosine_similarity(query_vec, vectors)[0]
 
-    best_index = np.argmax(scores)
+    # get top 3 relevant chunks
+    top_indices = scores.argsort()[-3:][::-1]
 
-    return documents[best_index]
+    # combine best chunks
+    combined_text = " ".join([documents[i] for i in top_indices])
+
+    # clean output
+    answer = combined_text.replace("\n", " ").strip()
+
+    # return short, readable answer
+    return answer[:300] + "..."
