@@ -1,4 +1,3 @@
-
 import axios from "axios"
 import { useState } from "react"
 
@@ -7,6 +6,7 @@ export default function UploadTextbook(){
   const [file,setFile] = useState(null)
   const [subject,setSubject] = useState("electronics")
   const [status,setStatus] = useState("")
+  const [loading,setLoading] = useState(false)
 
   const uploadFile = async () => {
 
@@ -21,17 +21,16 @@ export default function UploadTextbook(){
 
     try{
 
+      setLoading(true)
+      setStatus("Uploading...")
+
       const res = await axios.post(
         "https://rag-new-p9g6.onrender.com/upload",
-        formData,
-        {
-          headers:{
-            "Content-Type":"multipart/form-data"
-          }
-        }
+        formData
       )
 
-      setStatus(res.data.message)
+      setStatus(res.data.message || "Upload successful")
+      setFile(null)
 
     }catch(err){
 
@@ -40,43 +39,44 @@ export default function UploadTextbook(){
 
     }
 
+    setLoading(false)
   }
 
   return(
 
-<div className="upload-section">
+    <div className="upload-section">
 
-  <h3>Upload Textbook</h3>
+      <h3>Upload Textbook</h3>
 
-  <div className="upload-controls">
+      <div className="upload-controls">
 
-    <select
-      value={subject}
-      onChange={(e)=>setSubject(e.target.value)}
-    >
-      <option value="electronics">Electronics</option>
-      <option value="maths">Mathematics</option>
-      <option value="data">Data Structures</option>
-    </select>
+        <select
+          value={subject}
+          onChange={(e)=>setSubject(e.target.value)}
+        >
+          <option value="electronics">Electronics</option>
+          <option value="maths">Mathematics</option>
+          <option value="data">Data Structures</option>
+        </select>
 
-    <input
-      type="file"
-      accept=".pdf"
-      onChange={(e)=>setFile(e.target.files[0])}
-    />
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e)=>setFile(e.target.files[0])}
+        />
 
-    <button
-      className="upload-btn"
-      onClick={uploadFile}
-    >
-      Upload
-    </button>
+        <button
+          className="upload-btn"
+          onClick={uploadFile}
+          disabled={loading}
+        >
+          {loading ? "Uploading..." : "Upload"}
+        </button>
 
-  </div>
+      </div>
 
-  <p>{status}</p>
+      <p>{status}</p>
 
-</div>
-
-)
+    </div>
+  )
 }
