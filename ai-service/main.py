@@ -1,24 +1,47 @@
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from fastapi import FastAPI, UploadFile, File
+from pydantic import BaseModel
+from pypdf import PdfReader
+import os
 
-documents = []
-vectorizer = TfidfVectorizer()
-vectors = None
+from rag_engine import add_documents, search
 
-def add_documents(chunks):
-    global documents, vectors
+app = FastAPI()
 
-    documents.extend(chunks)
-    vectors = vectorizer.fit_transform(documents)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
-def search(query):
-    if not documents:
-        return "No data uploaded yet"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    query_vec = vectorizer.transform([query])
-    scores = cosine_similarity(query_vec, vectors)
+class Query(BaseModel):
+    question: str
 
-    best_index = np.argmax(scores)
+@app.get("/")
+def home():
+    return {"message": "AI service running"}
 
-    return documents[best_index]
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    reader = PdfReader(file_path)
+
+    text = ""
+    for page in reader.pages:
+        t = page.extract_text()
+        if t:
+            text += t
+
+    chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+
+    add_documents(chunks)
+
+    return {"message": "Uploaded successfully"}
+
+@app.post("/ask")
+def ask_ai(query: Query):
+    answer = search(query.question)
+    return {"answer": answer}
