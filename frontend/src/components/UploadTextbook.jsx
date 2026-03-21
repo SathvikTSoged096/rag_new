@@ -25,7 +25,7 @@ export default function UploadTextbook(){
       setStatus("Uploading...")
 
       const res = await axios.post(
-        "https://rag-new-p9g6.onrender.com/upload",
+        "https://rag-new-hhdr.onrender.com/upload",
         formData
       )
 
