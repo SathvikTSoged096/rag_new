@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
-  const API = import.meta.env.VITE_API_URL || "https://rag-new-rz76.onrender.com/"
+  // 🔥 DIRECT BACKEND URL (no env)
+  const API = "https://rag-new-rz76.onrender.com"
 
   const [question,setQuestion] = useState("")
   const [messages,setMessages] = useState([])
@@ -11,7 +12,6 @@ export default function ChatBox(){
 
   const bottomRef = useRef(null)
 
-  // auto scroll
   useEffect(()=>{
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   },[messages, loading])
@@ -21,14 +21,14 @@ export default function ChatBox(){
     if(!question.trim()) return
 
     const userMsg = {role:"user", text:question}
-
     setMessages(prev => [...prev, userMsg])
+
     setQuestion("")
     setLoading(true)
 
     try{
 
-      // 🔥 Wake backend (Render fix)
+      // 🔥 wake backend (Render cold start fix)
       await axios.get(API)
 
       const res = await axios.post(`${API}/chat`, {
