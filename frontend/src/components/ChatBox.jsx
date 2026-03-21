@@ -27,7 +27,7 @@ export default function ChatBox(){
     try{
 
       const res = await axios.post(
-        "https://rag-new-hhdr.onrender.com/chat",
+        "https://rag-new-rz76.onrender.com/chat",
         {
           question,
           user_id:1
