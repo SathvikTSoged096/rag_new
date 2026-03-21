@@ -3,6 +3,8 @@ import { useState } from "react"
 
 export default function UploadTextbook(){
 
+  const API = import.meta.env.VITE_API_URL
+
   const [file,setFile] = useState(null)
   const [subject,setSubject] = useState("electronics")
   const [status,setStatus] = useState("")
@@ -24,7 +26,7 @@ export default function UploadTextbook(){
       setStatus("Uploading...")
 
       const res = await axios.post(
-        `${process.env.REACT_APP_API_URL}/upload`,
+        `${API}/upload`,
         formData
       )
 
