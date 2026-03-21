@@ -106,3 +106,18 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`)
 })
+
+
+
+console.log("Sending file to AI...")
+
+const response = await axios.post(
+  `${AI_URL}/upload`,
+  form,
+  {
+    headers: form.getHeaders(),
+    timeout: 120000
+  }
+)
+
+console.log("AI response:", response.data)
