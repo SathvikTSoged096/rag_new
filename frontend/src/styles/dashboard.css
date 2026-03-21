@@ -145,7 +145,7 @@ margin-bottom:20px;
 
 /* BUTTON */
 
-..upload-controls{
+.upload-controls{
 display:flex;
 gap:10px;
 margin-top:15px;
