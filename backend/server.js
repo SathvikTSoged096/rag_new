@@ -13,7 +13,7 @@ app.use(express.json())
 
 // ===== ENV VARIABLES =====
 const PORT = process.env.PORT || 5000
-const AI_URL = process.env.AI_URL || "https://rag-new-ajd8.onrender.com/"
+const AI_URL = process.env.AI_URL 
 
 // ===== PostgreSQL =====
 const pool = new Pool({
