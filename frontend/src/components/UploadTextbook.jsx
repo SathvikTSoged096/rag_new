@@ -3,7 +3,7 @@ import { useState } from "react"
 
 export default function UploadTextbook(){
 
-  const API = import.meta.env.VITE_API_URL
+  const API = import.meta.env.VITE_API_URL || "https://rag-new-rz76.onrender.com/"
 
   const [file,setFile] = useState(null)
   const [subject,setSubject] = useState("electronics")
@@ -25,10 +25,10 @@ export default function UploadTextbook(){
       setLoading(true)
       setStatus("Uploading...")
 
-      const res = await axios.post(
-        `${API}/upload`,
-        formData
-      )
+      // 🔥 wake backend
+      await axios.get(API)
+
+      const res = await axios.post(`${API}/upload`, formData)
 
       setStatus(res.data.message || "Upload successful")
       setFile(null)
@@ -74,6 +74,7 @@ export default function UploadTextbook(){
       </div>
 
       <p>{status}</p>
+
     </div>
   )
 }
