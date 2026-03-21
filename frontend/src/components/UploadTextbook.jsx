@@ -20,12 +20,11 @@ export default function UploadTextbook(){
     formData.append("subject", subject)
 
     try{
-
       setLoading(true)
       setStatus("Uploading...")
 
       const res = await axios.post(
-        "https://rag-new-rz76.onrender.com/upload",
+        `${process.env.REACT_APP_API_URL}/upload`,
         formData
       )
 
@@ -33,17 +32,14 @@ export default function UploadTextbook(){
       setFile(null)
 
     }catch(err){
-
       console.error(err)
       setStatus("Upload failed")
-
     }
 
     setLoading(false)
   }
 
   return(
-
     <div className="upload-section">
 
       <h3>Upload Textbook</h3>
@@ -76,7 +72,6 @@ export default function UploadTextbook(){
       </div>
 
       <p>{status}</p>
-
     </div>
   )
 }
