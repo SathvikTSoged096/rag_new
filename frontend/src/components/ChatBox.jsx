@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
+  const API = import.meta.env.VITE_API_URL
+
   const [question,setQuestion] = useState("")
   const [messages,setMessages] = useState([])
   const [loading,setLoading] = useState(false)
@@ -26,7 +28,7 @@ export default function ChatBox(){
     try{
 
       const res = await axios.post(
-        `${process.env.REACT_APP_API_URL}/chat`,
+        `${API}/chat`,
         {
           question,
           user_id:1
