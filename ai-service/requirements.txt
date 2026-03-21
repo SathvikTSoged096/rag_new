@@ -4,4 +4,5 @@ pypdf
 numpy
 scikit-learn
 python-multipart
-dotenv
+python-dotenv
+psycopg2-binary
