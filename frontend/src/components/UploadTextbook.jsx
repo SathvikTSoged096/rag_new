@@ -3,7 +3,8 @@ import { useState } from "react"
 
 export default function UploadTextbook(){
 
-  const API = import.meta.env.VITE_API_URL || "https://rag-new-rz76.onrender.com/"
+  // 🔥 DIRECT BACKEND URL
+  const API = "https://rag-new-rz76.onrender.com"
 
   const [file,setFile] = useState(null)
   const [subject,setSubject] = useState("electronics")
@@ -34,8 +35,10 @@ export default function UploadTextbook(){
       setFile(null)
 
     }catch(err){
+
       console.error(err)
       setStatus("Upload failed")
+
     }
 
     setLoading(false)
