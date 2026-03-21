@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
-  const API = import.meta.env.VITE_API_URL
+  const API = import.meta.env.VITE_API_URL || "https://rag-new-rz76.onrender.com/"
 
   const [question,setQuestion] = useState("")
   const [messages,setMessages] = useState([])
@@ -11,6 +11,7 @@ export default function ChatBox(){
 
   const bottomRef = useRef(null)
 
+  // auto scroll
   useEffect(()=>{
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   },[messages, loading])
@@ -20,20 +21,20 @@ export default function ChatBox(){
     if(!question.trim()) return
 
     const userMsg = {role:"user", text:question}
-    setMessages(prev => [...prev, userMsg])
 
+    setMessages(prev => [...prev, userMsg])
     setQuestion("")
     setLoading(true)
 
     try{
 
-      const res = await axios.post(
-        `${API}/chat`,
-        {
-          question,
-          user_id:1
-        }
-      )
+      // 🔥 Wake backend (Render fix)
+      await axios.get(API)
+
+      const res = await axios.post(`${API}/chat`, {
+        question,
+        user_id:1
+      })
 
       setMessages(prev => [
         ...prev,
@@ -46,7 +47,7 @@ export default function ChatBox(){
 
       setMessages(prev => [
         ...prev,
-        {role:"bot", text:"AI service not reachable"}
+        {role:"bot", text:"⚠️ AI service not reachable"}
       ])
     }
 
@@ -56,7 +57,9 @@ export default function ChatBox(){
   return(
     <div className="chat-wrapper">
 
-      <div className="chat-header">LMS AI Assistant</div>
+      <div className="chat-header">
+        LMS AI Assistant
+      </div>
 
       <div className="chat-messages">
 
@@ -73,6 +76,7 @@ export default function ChatBox(){
         )}
 
         <div ref={bottomRef}></div>
+
       </div>
 
       <div className="chat-input-area">
@@ -85,11 +89,12 @@ export default function ChatBox(){
           placeholder="Ask anything..."
         />
 
-        <button onClick={askAI} className="send-btn">
+        <button className="send-btn" onClick={askAI}>
           Send
         </button>
 
       </div>
+
     </div>
   )
 }
