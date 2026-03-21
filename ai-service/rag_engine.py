@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # storage
 documents = []
 
-# improved vectorizer
+# better vectorizer
 vectorizer = TfidfVectorizer(stop_words="english")
 
 vectors = None
@@ -14,58 +14,59 @@ vectors = None
 def add_documents(chunks):
     global documents, vectors
 
-    # clean chunks (remove empty ones)
+    # clean chunks
     clean_chunks = [c.strip() for c in chunks if c.strip()]
 
     documents.extend(clean_chunks)
 
-    # create embeddings
-    vectors = vectorizer.fit_transform(documents)
+    # build embeddings safely
+    if documents:
+        vectors = vectorizer.fit_transform(documents)
 
 
 def search(query):
     global vectors
 
     if vectors is None or len(documents) == 0:
-        return "No data available. Please upload a textbook first."
+        return "No data available. Please upload or load content."
 
-    query_lower = query.lower()
+    try:
+        query_lower = query.lower()
 
-    # remove small words (like "what", "is")
-    query_words = [w for w in query_lower.split() if len(w) > 3]
+        # remove useless words
+        query_words = [w for w in query_lower.split() if len(w) > 3]
 
-    # 🔥 STEP 1: filter relevant sections
-    filtered_docs = [
-        doc for doc in documents
-        if any(word in doc.lower() for word in query_words)
-    ]
+        # STEP 1: keyword filter (section detection)
+        filtered_indices = [
+            i for i, doc in enumerate(documents)
+            if any(word in doc.lower() for word in query_words)
+        ]
 
-    # fallback if nothing matched
-    if not filtered_docs:
-        filtered_docs = documents
+        # fallback if nothing matched
+        if not filtered_indices:
+            filtered_indices = list(range(len(documents)))
 
-    # 🔥 STEP 2: vectorize filtered docs
-    temp_vectors = vectorizer.fit_transform(filtered_docs)
+        # STEP 2: similarity on selected docs
+        query_vec = vectorizer.transform([query])
 
-    query_vec = vectorizer.transform([query])
+        scores = cosine_similarity(query_vec, vectors)[0]
 
-    scores = cosine_similarity(query_vec, temp_vectors)[0]
+        # only consider filtered indices
+        filtered_scores = [(i, scores[i]) for i in filtered_indices]
 
-    # 🔥 STEP 3: best match
-    best_index = scores.argmax()
+        # sort by score
+        filtered_scores.sort(key=lambda x: x[1], reverse=True)
 
-    answer = filtered_docs[best_index].replace("\n", " ").strip()
+        # take top 3
+        top_indices = [i for i, _ in filtered_scores[:3]]
 
-    # 🔥 STEP 4: return short clean answer
-    return answer[:300] + "..."
-    # get top 3 relevant chunks
-    top_indices = scores.argsort()[-3:][::-1]
+        # combine results
+        combined_text = " ".join([documents[i] for i in top_indices])
 
-    # combine best chunks
-    combined_text = " ".join([documents[i] for i in top_indices])
+        # clean output
+        answer = combined_text.replace("\n", " ").strip()
 
-    # clean output
-    answer = combined_text.replace("\n", " ").strip()
+        return answer[:300] + "..."
 
-    # return short, readable answer
-    return answer[:300] + "..."
+    except Exception as e:
+        return f"Error processing query: {str(e)}"
