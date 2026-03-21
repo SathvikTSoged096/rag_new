@@ -9,7 +9,6 @@ export default function ChatBox(){
 
   const bottomRef = useRef(null)
 
-  // auto scroll to latest message
   useEffect(()=>{
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   },[messages, loading])
@@ -19,27 +18,25 @@ export default function ChatBox(){
     if(!question.trim()) return
 
     const userMsg = {role:"user", text:question}
-
     setMessages(prev => [...prev, userMsg])
+
     setQuestion("")
     setLoading(true)
 
     try{
 
       const res = await axios.post(
-        "https://rag-new-rz76.onrender.com/chat",
+        `${process.env.REACT_APP_API_URL}/chat`,
         {
           question,
           user_id:1
         }
       )
 
-      const botMsg = {
-        role:"bot",
-        text:res.data.answer
-      }
-
-      setMessages(prev => [...prev, botMsg])
+      setMessages(prev => [
+        ...prev,
+        {role:"bot", text:res.data.answer}
+      ])
 
     }catch(err){
 
@@ -49,19 +46,15 @@ export default function ChatBox(){
         ...prev,
         {role:"bot", text:"AI service not reachable"}
       ])
-
     }
 
     setLoading(false)
   }
 
   return(
-
     <div className="chat-wrapper">
 
-      <div className="chat-header">
-        LMS AI Assistant
-      </div>
+      <div className="chat-header">LMS AI Assistant</div>
 
       <div className="chat-messages">
 
@@ -78,28 +71,23 @@ export default function ChatBox(){
         )}
 
         <div ref={bottomRef}></div>
-
       </div>
 
       <div className="chat-input-area">
 
         <input
           className="chat-input"
-          placeholder="Ask about electronics, math..."
           value={question}
           onChange={(e)=>setQuestion(e.target.value)}
           onKeyDown={(e)=> e.key==="Enter" && askAI()}
+          placeholder="Ask anything..."
         />
 
-        <button
-          className="send-btn"
-          onClick={askAI}
-        >
+        <button onClick={askAI} className="send-btn">
           Send
         </button>
 
       </div>
-
     </div>
   )
 }
