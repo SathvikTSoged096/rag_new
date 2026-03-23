@@ -1,13 +1,29 @@
 import psycopg2
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
+from urllib.parse import urlparse
 
 def get_chunks_for_rag(subject_id=None):
     try:
-        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+        db_url = os.getenv("DATABASE_URL")
+
+        if not db_url:
+            print("❌ DATABASE_URL not found")
+            return []
+
+        print("✅ DB URL loaded")
+
+        # 🔥 Parse DB URL (fix for Neon + Render)
+        result = urlparse(db_url)
+
+        conn = psycopg2.connect(
+            dbname=result.path[1:],   # remove '/'
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port,
+            sslmode="require"
+        )
+
         cursor = conn.cursor()
 
         # ===== QUERY =====
@@ -36,26 +52,21 @@ def get_chunks_for_rag(subject_id=None):
         # ===== PROCESSING =====
         chunks = []
 
-        for row in rows:
-            subject_name, title, body = row
+        for subject_name, title, body in rows:
 
             if not body:
                 continue
 
-            # structured text (VERY IMPORTANT for RAG)
             full_text = f"{subject_name} - {title}. {body}"
 
-            # split into paragraphs
             paragraphs = [
                 p.strip() for p in full_text.split("\n\n")
                 if p.strip()
             ]
 
-            # fallback if no paragraph split
             if not paragraphs:
                 paragraphs = [full_text]
 
-            # limit chunk size (important for accuracy)
             for p in paragraphs:
                 if len(p) > 500:
                     sub_chunks = [p[i:i+500] for i in range(0, len(p), 500)]
@@ -63,8 +74,10 @@ def get_chunks_for_rag(subject_id=None):
                 else:
                     chunks.append(p)
 
+        print(f"✅ Loaded {len(chunks)} chunks")
+
         return chunks
 
     except Exception as e:
-        print(f"DB ERROR: {e}")
+        print(f"❌ DB ERROR: {e}")
         return []
