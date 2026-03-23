@@ -139,7 +139,22 @@ app.post("/chat", async (req, res) => {
     })
   }
 })
+app.get("/subjects", async (req, res) => {
+  try {
 
+    const result = await pool.query(
+      "SELECT id, title FROM subjects ORDER BY id"
+    )
+
+    res.json(result.rows)
+
+  } catch (err) {
+
+    console.error("❌ SUBJECT ERROR:", err.message)
+
+    res.status(500).json({ error: "Failed to fetch subjects" })
+  }
+})
 // ===== Health Check =====
 app.get("/", (req, res) => {
   res.send("Backend running 🚀")
