@@ -87,6 +87,34 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ answer: "Question is required" })
   }
 
+  // 🔥 STEP 1: normalize text
+  const q = question.toLowerCase().trim()
+
+  // 🔥 STEP 2: greeting list
+  const greetings = [
+    "hi",
+    "hello",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening"
+  ]
+
+  // 🔥 STEP 3: check greeting
+  if (greetings.includes(q)) {
+
+    const staticReply = "👋 Hello! I'm your LMS AI Assistant. Ask me anything about your subjects!"
+
+    // optional: save to DB
+    await pool.query(
+      "INSERT INTO chats(user_id, question, answer) VALUES($1,$2,$3)",
+      [user_id || 1, question, staticReply]
+    )
+
+    return res.json({ answer: staticReply })
+  }
+
+  // ===== NORMAL AI FLOW =====
   try {
 
     const rag = await axios.post(`${AI_URL}/ask`, {
@@ -96,8 +124,8 @@ app.post("/chat", async (req, res) => {
     const answer = rag.data.answer || "No response from AI"
 
     await pool.query(
-      "INSERT INTO chats(user_id, question, answer) VALUES($1, $2, $3)",
-      [user_id, question, answer]
+      "INSERT INTO chats(user_id, question, answer) VALUES($1,$2,$3)",
+      [user_id || 1, question, answer]
     )
 
     res.json({ answer })
