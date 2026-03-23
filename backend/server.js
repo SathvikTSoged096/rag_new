@@ -97,7 +97,7 @@ app.post("/chat", async (req, res) => {
 
     await pool.query(
       "INSERT INTO chats(user_id, question, answer) VALUES($1, $2, $3)",
-      [user_id || 1, question, answer]
+      [user_id, question, answer]
     )
 
     res.json({ answer })
