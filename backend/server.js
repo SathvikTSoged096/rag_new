@@ -81,7 +81,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 // ===== Chat Route =====
 app.post("/chat", async (req, res) => {
 
-  const { question, user_id } = req.body
+  const { question, user_id, subject_id } = req.body
 
   if (!question) {
     return res.status(400).json({ answer: "Question is required" })
@@ -118,8 +118,10 @@ app.post("/chat", async (req, res) => {
   try {
 
     const rag = await axios.post(`${AI_URL}/ask`, {
-      question
-    })
+  question,
+  subject_id: subject_id   // 🔥 important
+})
+
 
     const answer = rag.data.answer || "No response from AI"
 
