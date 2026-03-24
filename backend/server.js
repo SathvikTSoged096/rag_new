@@ -39,6 +39,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
   try {
 
+    const subject_id = req.body.subject_id   // 🔥 ADD THIS
+
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" })
     }
@@ -48,23 +50,21 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     const form = new FormData()
     form.append("file", fs.createReadStream(req.file.path))
 
+    // 🔥 PASS subject_id TO AI
+    form.append("subject_id", subject_id)
+
     const response = await axios.post(
       `${AI_URL}/upload`,
       form,
       {
         headers: form.getHeaders(),
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
         timeout: 120000
       }
     )
 
     console.log("✅ AI response:", response.data)
 
-    // delete temp file
-    fs.unlink(req.file.path, (err) => {
-      if (err) console.error("File delete error:", err)
-    })
+    fs.unlink(req.file.path, () => {})
 
     res.json({ message: "Textbook uploaded successfully" })
 
@@ -72,12 +72,9 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     console.error("❌ UPLOAD ERROR:", err.response?.data || err.message)
 
-    res.status(500).json({
-      message: "Upload failed"
-    })
+    res.status(500).json({ message: "Upload failed" })
   }
 })
-
 // ===== Chat Route =====
 app.post("/chat", async (req, res) => {
 
