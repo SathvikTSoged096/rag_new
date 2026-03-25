@@ -1,6 +1,7 @@
 import psycopg2
 import os
 from urllib.parse import urlparse
+import json
 
 def get_chunks_for_rag(subject_id=None):
     try:
@@ -12,11 +13,11 @@ def get_chunks_for_rag(subject_id=None):
 
         print("✅ DB URL loaded")
 
-        # 🔥 Parse DB URL (fix for Neon + Render)
+        # Parse DB URL 
         result = urlparse(db_url)
 
         conn = psycopg2.connect(
-            dbname=result.path[1:],   # remove '/'
+            dbname=result.path[1:],   
             user=result.username,
             password=result.password,
             host=result.hostname,
@@ -29,19 +30,15 @@ def get_chunks_for_rag(subject_id=None):
         # ===== QUERY =====
         if subject_id:
             cursor.execute("""
-                SELECT s.subject_name, c.title, c.body
-                FROM content c
-                JOIN subjects s ON c.subject_id = s.subject_id
-                WHERE c.body IS NOT NULL AND c.subject_id = %s
-                ORDER BY c.unit_number, c.chapter_number, c.section_number
+                SELECT id as subject_id, title as subject_name, units
+                FROM subjects
+                WHERE units IS NOT NULL AND jsonb_array_length(units) > 0 AND id = %s
             """, (subject_id,))
         else:
             cursor.execute("""
-                SELECT s.subject_name, c.title, c.body
-                FROM content c
-                JOIN subjects s ON c.subject_id = s.subject_id
-                WHERE c.body IS NOT NULL
-                ORDER BY c.subject_id, c.unit_number, c.chapter_number
+                SELECT id as subject_id, title as subject_name, units
+                FROM subjects
+                WHERE units IS NOT NULL AND jsonb_array_length(units) > 0
             """)
 
         rows = cursor.fetchall()
@@ -52,22 +49,30 @@ def get_chunks_for_rag(subject_id=None):
         # ===== PROCESSING =====
         chunks = []
 
-        for subject_name, title, body in rows:
+        for subject_id, subject_name, units_json in rows:
+            if not units_json:
+                continue
+                
+            # Parse JSONB
+            units = units_json if isinstance(units_json, list) else json.loads(units_json)
+            
+            # Extract all paragraphs from deeply nested JSON 
+            all_paragraphs = []
+            
+            for unit in units:
+                for chapter in unit.get('chapters', []):
+                    for section in chapter.get('sections', []):
+                        if section.get('title'):
+                            all_paragraphs.append(f"{subject_name} - {section['title']}.")
+                        
+                        for p in section.get('paragraphs', []):
+                            if p and isinstance(p, str) and not p.startswith('[PDF]'):
+                                all_paragraphs.append(p.strip())
 
-            if not body:
+            if not all_paragraphs:
                 continue
 
-            full_text = f"{subject_name} - {title}. {body}"
-
-            paragraphs = [
-                p.strip() for p in full_text.split("\n\n")
-                if p.strip()
-            ]
-
-            if not paragraphs:
-                paragraphs = [full_text]
-
-            for p in paragraphs:
+            for p in all_paragraphs:
                 if len(p) > 500:
                     sub_chunks = [p[i:i+500] for i in range(0, len(p), 500)]
                     chunks.extend(sub_chunks)
@@ -75,7 +80,6 @@ def get_chunks_for_rag(subject_id=None):
                     chunks.append(p)
 
         print(f"✅ Loaded {len(chunks)} chunks")
-
         return chunks
 
     except Exception as e:
