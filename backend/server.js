@@ -31,15 +31,25 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir)
 }
 
-// ===== Multer =====
-const upload = multer({ dest: uploadDir })
+// ✅ SERVE UPLOADS (IMPORTANT FIX)
+app.use("/uploads", express.static(uploadDir))
+
+// ===== Multer Storage (better filenames) =====
+const storage = multer.diskStorage({
+  destination: uploadDir,
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + file.originalname
+    cb(null, uniqueName)
+  }
+})
+
+const upload = multer({ storage })
 
 // ===== Upload Route =====
 app.post("/upload", upload.single("file"), async (req, res) => {
-
   try {
 
-    const subject_id = req.body.subject_id   // 🔥 ADD THIS
+    const subject_id = req.body.subject_id
 
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" })
@@ -49,8 +59,6 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     const form = new FormData()
     form.append("file", fs.createReadStream(req.file.path))
-
-    // 🔥 PASS subject_id TO AI
     form.append("subject_id", subject_id)
 
     const response = await axios.post(
@@ -64,17 +72,21 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     console.log("✅ AI response:", response.data)
 
-    fs.unlink(req.file.path, () => {})
+    // ❌ DO NOT DELETE FILE (IMPORTANT FIX)
+    // fs.unlink(req.file.path, () => {})
 
-    res.json({ message: "Textbook uploaded successfully" })
+    // ✅ RETURN FILE URL
+    res.json({
+      message: "Textbook uploaded successfully",
+      fileUrl: `/uploads/${req.file.filename}`
+    })
 
   } catch (err) {
-
     console.error("❌ UPLOAD ERROR:", err.response?.data || err.message)
-
     res.status(500).json({ message: "Upload failed" })
   }
 })
+
 // ===== Chat Route =====
 app.post("/chat", async (req, res) => {
 
@@ -84,25 +96,18 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ answer: "Question is required" })
   }
 
-  // 🔥 STEP 1: normalize text
   const q = question.toLowerCase().trim()
 
-  // 🔥 STEP 2: greeting list
   const greetings = [
-    "hi",
-    "hello",
-    "hey",
-    "good morning",
-    "good afternoon",
-    "good evening"
+    "hi", "hello", "hey",
+    "good morning", "good afternoon", "good evening"
   ]
 
-  // 🔥 STEP 3: check greeting
+  // ✅ Greeting handling
   if (greetings.includes(q)) {
 
     const staticReply = "👋 Hello! I'm your LMS AI Assistant. Ask me anything about your subjects!"
 
-    // optional: save to DB
     await pool.query(
       "INSERT INTO chats(user_id, question, answer) VALUES($1,$2,$3)",
       [user_id || 1, question, staticReply]
@@ -115,10 +120,9 @@ app.post("/chat", async (req, res) => {
   try {
 
     const rag = await axios.post(`${AI_URL}/ask`, {
-  question,
-  subject_id: subject_id   // 🔥 important
-})
-
+      question,
+      subject_id
+    })
 
     const answer = rag.data.answer || "No response from AI"
 
@@ -138,6 +142,8 @@ app.post("/chat", async (req, res) => {
     })
   }
 })
+
+// ===== Subjects Route =====
 app.get("/subjects", async (req, res) => {
   try {
 
@@ -154,6 +160,7 @@ app.get("/subjects", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch subjects" })
   }
 })
+
 // ===== Health Check =====
 app.get("/", (req, res) => {
   res.send("Backend running 🚀")
