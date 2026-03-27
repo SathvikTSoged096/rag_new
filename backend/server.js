@@ -15,7 +15,7 @@ app.use(express.json())
 // ===== ENV VARIABLES =====
 const PORT = process.env.PORT || 5000
 
-// ✅ SAFE fallback + remove trailing slash
+// ✅ AI URL (safe cleanup)
 const AI_URL = (process.env.AI_URL || "https://rag-new-ajd8.onrender.com").replace(/\/$/, "")
 
 // ===== PostgreSQL =====
@@ -24,17 +24,26 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 })
 
-// ===== Ensure uploads folder exists =====
-const uploadDir = path.join(__dirname, "uploads")
 
+// =====================================================
+// ✅ CORRECT UPLOAD FOLDER (IMPORTANT FIX)
+// =====================================================
+
+// server.js is inside /src → go one level up
+const uploadDir = path.join(__dirname, "../uploads")
+
+// Create uploads folder if not exists
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir)
+  fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-// ✅ SERVE UPLOADS (IMPORTANT FIX)
+// Serve uploads statically
 app.use("/uploads", express.static(uploadDir))
 
-// ===== Multer Storage (better filenames) =====
+
+// =====================================================
+// ✅ MULTER CONFIG
+// =====================================================
 const storage = multer.diskStorage({
   destination: uploadDir,
   filename: (req, file, cb) => {
@@ -45,49 +54,51 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage })
 
-// ===== Upload Route =====
+
+// =====================================================
+// ✅ FILE UPLOAD ROUTE
+// =====================================================
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
-
     const subject_id = req.body.subject_id
 
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" })
     }
 
-    console.log("📤 Sending file to AI...")
+    console.log("📤 File saved locally:", req.file.path)
 
+    // Send file to AI
     const form = new FormData()
     form.append("file", fs.createReadStream(req.file.path))
     form.append("subject_id", subject_id)
 
-    const response = await axios.post(
-      `${AI_URL}/upload`,
-      form,
-      {
-        headers: form.getHeaders(),
-        timeout: 120000
-      }
-    )
+    const response = await axios.post(`${AI_URL}/upload`, form, {
+      headers: form.getHeaders(),
+      timeout: 120000
+    })
 
     console.log("✅ AI response:", response.data)
 
-    // ❌ DO NOT DELETE FILE (IMPORTANT FIX)
-    // fs.unlink(req.file.path, () => {})
+    // ✅ RETURN FULL FILE URL (IMPORTANT)
+    const fileUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`
 
-    // ✅ RETURN FILE URL
     res.json({
       message: "Textbook uploaded successfully",
-      fileUrl: `/uploads/${req.file.filename}`
+      fileUrl
     })
 
   } catch (err) {
     console.error("❌ UPLOAD ERROR:", err.response?.data || err.message)
+
     res.status(500).json({ message: "Upload failed" })
   }
 })
 
-// ===== Chat Route =====
+
+// =====================================================
+// ✅ CHAT ROUTE
+// =====================================================
 app.post("/chat", async (req, res) => {
 
   const { question, user_id, subject_id } = req.body
@@ -103,7 +114,7 @@ app.post("/chat", async (req, res) => {
     "good morning", "good afternoon", "good evening"
   ]
 
-  // ✅ Greeting handling
+  // Greeting handling
   if (greetings.includes(q)) {
 
     const staticReply = "👋 Hello! I'm your LMS AI Assistant. Ask me anything about your subjects!"
@@ -116,9 +127,7 @@ app.post("/chat", async (req, res) => {
     return res.json({ answer: staticReply })
   }
 
-  // ===== NORMAL AI FLOW =====
   try {
-
     const rag = await axios.post(`${AI_URL}/ask`, {
       question,
       subject_id
@@ -134,7 +143,6 @@ app.post("/chat", async (req, res) => {
     res.json({ answer })
 
   } catch (err) {
-
     console.error("❌ CHAT ERROR:", err.response?.data || err.message)
 
     res.status(500).json({
@@ -143,10 +151,12 @@ app.post("/chat", async (req, res) => {
   }
 })
 
-// ===== Subjects Route =====
+
+// =====================================================
+// ✅ SUBJECTS ROUTE
+// =====================================================
 app.get("/subjects", async (req, res) => {
   try {
-
     const result = await pool.query(
       "SELECT id, title FROM subjects ORDER BY id"
     )
@@ -154,19 +164,25 @@ app.get("/subjects", async (req, res) => {
     res.json(result.rows)
 
   } catch (err) {
-
     console.error("❌ SUBJECT ERROR:", err.message)
 
     res.status(500).json({ error: "Failed to fetch subjects" })
   }
 })
 
-// ===== Health Check =====
+
+// =====================================================
+// ✅ HEALTH CHECK
+// =====================================================
 app.get("/", (req, res) => {
   res.send("Backend running 🚀")
 })
 
-// ===== Start Server =====
+
+// =====================================================
+// ✅ START SERVER
+// =====================================================
 app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`)
+  console.log(`🚀 Backend running on port ${PORT}`)
+  console.log(`📂 Uploads served at: http://localhost:${PORT}/uploads`)
 })
