@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
-  const API = "https://rag-new-rz76.onrender.com"
+  const API = "https://rag-new-rz76.onrender.com/"
 
   const [question,setQuestion] = useState("")
   const [messages,setMessages] = useState([])
