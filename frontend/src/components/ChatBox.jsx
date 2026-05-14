@@ -1,73 +1,89 @@
 import axios from "axios"
 import { useState, useRef, useEffect } from "react"
 
-export default function ChatBox(){
+export default function ChatBox() {
 
-  const API = "https://rag-new-rz76.onrender.com/"
+  // ✅ YOUR EXPRESS BACKEND URL
+  const API = "https://rag-new-rz76.onrender.com"
 
-  const [question,setQuestion] = useState("")
-  const [messages,setMessages] = useState([])
-  const [loading,setLoading] = useState(false)
+  const [question, setQuestion] = useState("")
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(false)
 
   const bottomRef = useRef(null)
 
-  useEffect(()=>{
+  // ✅ Auto scroll
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({
-      behavior:"smooth"
+      behavior: "smooth"
     })
-  },[messages,loading])
+  }, [messages, loading])
 
-  const copyMessage = async(text)=>{
-    try{
+  // ✅ Copy Message
+  const copyMessage = async (text) => {
+    try {
       await navigator.clipboard.writeText(text)
       alert("Copied!")
-    }catch(err){
+    } catch (err) {
       console.log(err)
     }
   }
 
-  const askAI = async ()=>{
+  // ✅ Ask AI
+  const askAI = async () => {
 
-    if(!question.trim()) return
+    if (!question.trim()) return
 
-    const userQuestion = question
+    const userQuestion = question.trim()
 
+    // Add user message
     const userMsg = {
-      role:"user",
-      text:userQuestion
+      role: "user",
+      text: userQuestion
     }
 
-    setMessages(prev => [...prev,userMsg])
+    setMessages(prev => [...prev, userMsg])
 
+    // Clear input
     setQuestion("")
+
+    // Show loading
     setLoading(true)
 
-    try{
+    try {
 
-      // wake backend
+      // ✅ Optional wake-up ping (Render cold start)
       await axios.get(API)
 
-      const res = await axios.post(`${API}/ask`,{
-        question:userQuestion,
-        user_id:1
-      })
+      // ✅ CALL EXPRESS BACKEND
+      const res = await axios.post(
+        `${API}/chat`,
+        {
+          question: userQuestion,
+          user_id: 1
+        },
+        {
+          timeout: 120000
+        }
+      )
 
+      // Bot response
       const botMsg = {
-        role:"bot",
-        text:res.data.answer
+        role: "bot",
+        text: res.data.answer || "No response from AI"
       }
 
-      setMessages(prev => [...prev,botMsg])
+      setMessages(prev => [...prev, botMsg])
 
-    }catch(err){
+    } catch (err) {
 
-      console.error(err)
+      console.error("CHAT ERROR:", err)
 
       setMessages(prev => [
         ...prev,
         {
-          role:"bot",
-          text:"⚠️ AI service not reachable"
+          role: "bot",
+          text: "⚠️ AI service not reachable"
         }
       ])
     }
@@ -75,28 +91,31 @@ export default function ChatBox(){
     setLoading(false)
   }
 
-  return(
+  return (
 
     <div className="chat-wrapper">
 
+      {/* HEADER */}
       <div className="chat-header">
         LMS AI Assistant
       </div>
 
+      {/* CHAT AREA */}
       <div className="chat-messages">
 
-        {messages.map((m,i)=>(
+        {messages.map((m, i) => (
 
           <div
             key={i}
             className={`message ${m.role}`}
           >
 
+            {/* MESSAGE TEXT */}
             <div className="message-text">
               {m.text}
             </div>
 
-            {/* ACTION BUTTONS ONLY FOR BOT */}
+            {/* BOT ACTION BUTTONS */}
             {m.role === "bot" && (
 
               <div className="message-actions">
@@ -118,7 +137,7 @@ export default function ChatBox(){
                 <button
                   className="action-btn"
                   title="Copy"
-                  onClick={()=>copyMessage(m.text)}
+                  onClick={() => copyMessage(m.text)}
                 >
                   📋
                 </button>
@@ -129,6 +148,7 @@ export default function ChatBox(){
           </div>
         ))}
 
+        {/* LOADING */}
         {loading && (
           <div className="message bot typing">
             AI is thinking<span className="dots"></span>
@@ -139,21 +159,24 @@ export default function ChatBox(){
 
       </div>
 
+      {/* INPUT AREA */}
       <div className="chat-input-area">
 
         <input
           className="chat-input"
+          type="text"
           value={question}
-          onChange={(e)=>setQuestion(e.target.value)}
-          onKeyDown={(e)=> e.key==="Enter" && askAI()}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && askAI()}
           placeholder="Ask anything..."
         />
 
         <button
           className="send-btn"
           onClick={askAI}
+          disabled={loading}
         >
-          Send
+          {loading ? "..." : "Send"}
         </button>
 
       </div>
