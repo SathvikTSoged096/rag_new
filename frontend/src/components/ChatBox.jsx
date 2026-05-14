@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from "react"
 
 export default function ChatBox(){
 
-  // 🔥 DIRECT BACKEND URL (no env)
   const API = "https://rag-new-rz76.onrender.com"
 
   const [question,setQuestion] = useState("")
@@ -13,33 +12,52 @@ export default function ChatBox(){
   const bottomRef = useRef(null)
 
   useEffect(()=>{
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  },[messages, loading])
+    bottomRef.current?.scrollIntoView({
+      behavior:"smooth"
+    })
+  },[messages,loading])
+
+  const copyMessage = async(text)=>{
+    try{
+      await navigator.clipboard.writeText(text)
+      alert("Copied!")
+    }catch(err){
+      console.log(err)
+    }
+  }
 
   const askAI = async ()=>{
 
     if(!question.trim()) return
 
-    const userMsg = {role:"user", text:question}
-    setMessages(prev => [...prev, userMsg])
+    const userQuestion = question
+
+    const userMsg = {
+      role:"user",
+      text:userQuestion
+    }
+
+    setMessages(prev => [...prev,userMsg])
 
     setQuestion("")
     setLoading(true)
 
     try{
 
-      // 🔥 wake backend (Render cold start fix)
+      // wake backend
       await axios.get(API)
 
-      const res = await axios.post(`${API}/chat`, {
-        question,
+      const res = await axios.post(`${API}/ask`,{
+        question:userQuestion,
         user_id:1
       })
 
-      setMessages(prev => [
-        ...prev,
-        {role:"bot", text:res.data.answer}
-      ])
+      const botMsg = {
+        role:"bot",
+        text:res.data.answer
+      }
+
+      setMessages(prev => [...prev,botMsg])
 
     }catch(err){
 
@@ -47,7 +65,10 @@ export default function ChatBox(){
 
       setMessages(prev => [
         ...prev,
-        {role:"bot", text:"⚠️ AI service not reachable"}
+        {
+          role:"bot",
+          text:"⚠️ AI service not reachable"
+        }
       ])
     }
 
@@ -55,6 +76,7 @@ export default function ChatBox(){
   }
 
   return(
+
     <div className="chat-wrapper">
 
       <div className="chat-header">
@@ -64,8 +86,46 @@ export default function ChatBox(){
       <div className="chat-messages">
 
         {messages.map((m,i)=>(
-          <div key={i} className={`message ${m.role}`}>
-            {m.text}
+
+          <div
+            key={i}
+            className={`message ${m.role}`}
+          >
+
+            <div className="message-text">
+              {m.text}
+            </div>
+
+            {/* ACTION BUTTONS ONLY FOR BOT */}
+            {m.role === "bot" && (
+
+              <div className="message-actions">
+
+                <button
+                  className="action-btn"
+                  title="Good Response"
+                >
+                  👍
+                </button>
+
+                <button
+                  className="action-btn"
+                  title="Bad Response"
+                >
+                  👎
+                </button>
+
+                <button
+                  className="action-btn"
+                  title="Copy"
+                  onClick={()=>copyMessage(m.text)}
+                >
+                  📋
+                </button>
+
+              </div>
+            )}
+
           </div>
         ))}
 
@@ -89,7 +149,10 @@ export default function ChatBox(){
           placeholder="Ask anything..."
         />
 
-        <button className="send-btn" onClick={askAI}>
+        <button
+          className="send-btn"
+          onClick={askAI}
+        >
           Send
         </button>
 
