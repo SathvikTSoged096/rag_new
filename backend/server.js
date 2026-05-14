@@ -90,18 +90,73 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 // ===== Chat Route =====
 app.post("/chat", async (req, res) => {
 
-  const { question, user_id, subject_id } = req.body
+  try {
 
-  if (!question) {
-    return res.status(400).json({ answer: "Question is required" })
+    const { question, user_id, subject_id } = req.body
+
+    console.log("📩 Question:", question)
+
+    if (!question) {
+      return res.status(400).json({
+        answer: "Question is required"
+      })
+    }
+
+    const q = question.toLowerCase().trim()
+
+    const greetings = [
+      "hi",
+      "hello",
+      "hey",
+      "good morning",
+      "good afternoon",
+      "good evening"
+    ]
+
+    // Greeting handling
+    if (greetings.includes(q)) {
+
+      const staticReply =
+        "👋 Hello! I'm your LMS AI Assistant."
+
+      return res.json({
+        answer: staticReply
+      })
+    }
+
+    console.log("📤 Sending to AI:", `${AI_URL}/ask`)
+
+    // AI REQUEST
+    const rag = await axios.post(
+      `${AI_URL}/ask`,
+      {
+        question,
+        subject_id
+      },
+      {
+        timeout: 120000
+      }
+    )
+
+    console.log("✅ AI RESPONSE:", rag.data)
+
+    const answer =
+      rag.data.answer || "No response from AI"
+
+    res.json({ answer })
+
+  } catch (err) {
+
+    console.error(
+      "❌ FULL CHAT ERROR:",
+      err.response?.data || err.message
+    )
+
+    res.status(500).json({
+      answer: "AI service not reachable"
+    })
   }
-
-  const q = question.toLowerCase().trim()
-
-  const greetings = [
-    "hi", "hello", "hey",
-    "good morning", "good afternoon", "good evening"
-  ]
+})
 
   // ✅ Greeting handling
   if (greetings.includes(q)) {
