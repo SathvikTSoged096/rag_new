@@ -33,40 +33,37 @@ def search(query):
     try:
         query_lower = query.lower()
 
-        # remove useless words
+        # remove small useless words
         query_words = [w for w in query_lower.split() if len(w) > 3]
 
-        # STEP 1: keyword filter (section detection)
+        # STEP 1: filter relevant sections
         filtered_indices = [
             i for i, doc in enumerate(documents)
             if any(word in doc.lower() for word in query_words)
         ]
 
-        # fallback if nothing matched
+        # fallback
         if not filtered_indices:
             filtered_indices = list(range(len(documents)))
 
-        # STEP 2: similarity on selected docs
+        # STEP 2: similarity search
         query_vec = vectorizer.transform([query])
 
         scores = cosine_similarity(query_vec, vectors)[0]
 
-        # only consider filtered indices
+        # only filtered docs
         filtered_scores = [(i, scores[i]) for i in filtered_indices]
 
-        # sort by score
+        # sort best match
         filtered_scores.sort(key=lambda x: x[1], reverse=True)
 
-        # take top 3
-        top_indices = [i for i, _ in filtered_scores[:3]]
+        # BEST MATCH ONLY
+        best_index = filtered_scores[0][0]
 
-        # combine results
-        combined_text = " ".join([documents[i] for i in top_indices])
+        answer = documents[best_index].replace("\n", " ").strip()
 
-        # clean output
-        answer = combined_text.replace("\n", " ").strip()
-
-        return answer[:300] + "..."
+        # short clean response
+        return answer[:500]
 
     except Exception as e:
         return f"Error processing query: {str(e)}"
