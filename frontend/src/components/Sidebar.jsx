@@ -5,7 +5,7 @@ return(
 <div className="sidebar">
 
 <div className="logo">
-LMS
+RAG Application for Students
 </div>
 
 
