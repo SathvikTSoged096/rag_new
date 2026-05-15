@@ -1,82 +1,215 @@
+import re
+import numpy as np
+
 from fastapi import FastAPI, UploadFile, File
-from pydantic import BaseModel
-from pypdf import PdfReader
-import os
-from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 
-from rag_engine import add_documents, search
-from db_loader import get_chunks_for_rag
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-load_dotenv()
 
+# =========================
+# FASTAPI APP
+# =========================
 app = FastAPI()
 
-# Allow LMS frontend to call this API
+
+# =========================
+# CORS
+# =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your LMS URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-class Query(BaseModel):
-    question: str
-    subject_id: int = None  # optional: filter by subject
+# =========================
+# GLOBAL STORAGE
+# =========================
+documents = []
 
-@app.on_event("startup")
-async def load_db_content():
-    """Auto-load ALL course content from DB when server starts"""
-    chunks = get_chunks_for_rag()
-    if chunks:
-        add_documents(chunks)
-        print(f"Loaded {len(chunks)} chunks from DB into RAG")
+vectorizer = TfidfVectorizer(
+    stop_words="english",
+    ngram_range=(1, 2)
+)
+
+vectors = None
+
+
+# =========================
+# CLEAN TEXT
+# =========================
+def clean_text(text):
+
+    text = re.sub(r'\.{2,}', ' ', text)
+
+    text = re.sub(r'\b\d+(\.\d+)*\b', ' ', text)
+
+    text = re.sub(r'\s+', ' ', text)
+
+    return text.strip()
+
+
+# =========================
+# SMART CHUNKING
+# =========================
+def split_into_chunks(text):
+
+    raw_chunks = text.split("\n")
+
+    chunks = []
+
+    current_chunk = ""
+
+    for line in raw_chunks:
+
+        line = clean_text(line)
+
+        if not line:
+            continue
+
+        # detect headings
+        if len(line.split()) < 8 and current_chunk:
+
+            chunks.append(current_chunk.strip())
+
+            current_chunk = line + " "
+
+        else:
+            current_chunk += line + " "
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
+
+# =========================
+# ADD DOCUMENTS
+# =========================
+def add_documents(text):
+
+    global documents, vectors
+
+    chunks = split_into_chunks(text)
+
+    clean_chunks = []
+
+    for chunk in chunks:
+
+        lower_chunk = chunk.lower()
+
+        if len(chunk.split()) < 5:
+            continue
+
+        if "contents" in lower_chunk:
+            continue
+
+        clean_chunks.append(chunk)
+
+    documents = clean_chunks
+
+    if documents:
+        vectors = vectorizer.fit_transform(documents)
     else:
-        print(" No content in DB yet")
+        vectors = None
 
+
+# =========================
+# SEARCH FUNCTION
+# =========================
+def search_documents(query):
+
+    global documents, vectors
+
+    if vectors is None or len(documents) == 0:
+        return "No document uploaded."
+
+    query_vec = vectorizer.transform([query])
+
+    scores = cosine_similarity(query_vec, vectors)[0]
+
+    best_index = np.argmax(scores)
+
+    best_score = scores[best_index]
+
+    if best_score < 0.1:
+        return "No relevant answer found."
+
+    answer = documents[best_index]
+
+    sentences = answer.split(". ")
+
+    final_answer = []
+
+    query_words = query.lower().split()
+
+    for sentence in sentences:
+
+        if any(word in sentence.lower() for word in query_words):
+            final_answer.append(sentence)
+
+    if final_answer:
+        return ". ".join(final_answer[:3])
+
+    return answer[:500]
+
+
+# =========================
+# HEALTH ROUTE
+# =========================
 @app.get("/")
 def home():
-    return {"message": "AI service running"}
+    return {"message": "RAG API Running Successfully"}
 
+
+# =========================
+# UPLOAD ROUTE
+# =========================
 @app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
-    """Keep existing PDF upload — still works"""
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
+async def upload_file(file: UploadFile = File(...)):
 
-    reader = PdfReader(file_path)
-    text = ""
-    for page in reader.pages:
-        t = page.extract_text()
-        if t:
-            text += t
+    try:
 
-    chunks = text.split("\n\n")
-    add_documents(chunks)
-    return {"message": "Uploaded successfully"}
+        content = await file.read()
 
-@app.post("/ask")
-def ask_ai(query: Query):
-    """Answer student question, optionally filtered by subject"""
-    if query.subject_id:
-        # Reload only that subject's content before answering
-        chunks = get_chunks_for_rag(query.subject_id)
-        if chunks:
-            add_documents(chunks)
-    answer = search(query.question)
-    return {"answer": answer}
+        text = content.decode("utf-8", errors="ignore")
 
-@app.post("/reload-db")
-async def reload_from_db(subject_id: int = None):
-    """Call this after instructor adds new content"""
-    chunks = get_chunks_for_rag(subject_id)
-    if chunks:
-        add_documents(chunks)
-        return {"message": f"Reloaded {len(chunks)} chunks from DB"}
-    return {"message": "No content found in DB"}
+        add_documents(text)
+
+        return {
+            "status": "success",
+            "chunks": len(documents)
+        }
+
+    except Exception as e:
+
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+# =========================
+# SEARCH ROUTE
+# =========================
+@app.get("/search")
+def search(query: str):
+
+    try:
+
+        result = search_documents(query)
+
+        return {
+            "query": query,
+            "answer": result
+        }
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
