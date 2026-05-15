@@ -1,3 +1,4 @@
+import re
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -5,21 +6,43 @@ from sklearn.metrics.pairwise import cosine_similarity
 # storage
 documents = []
 
-# better vectorizer
-vectorizer = TfidfVectorizer(stop_words="english")
+# improved vectorizer
+vectorizer = TfidfVectorizer(
+    stop_words="english",
+    ngram_range=(1, 2)
+)
 
 vectors = None
+
+
+# CLEAN TEXT
+def clean_text(text):
+    text = re.sub(r'\.{2,}', ' ', text)  # remove dotted lines
+    text = re.sub(r'\b\d+(\.\d+)*\b', ' ', text)  # remove page numbers
+    text = re.sub(r'\s+', ' ', text)  # extra spaces
+    return text.strip()
 
 
 def add_documents(chunks):
     global documents, vectors
 
-    # clean chunks
-    clean_chunks = [c.strip() for c in chunks if c.strip()]
+    clean_chunks = []
+
+    for chunk in chunks:
+        chunk = clean_text(chunk)
+
+        # skip tiny or useless chunks
+        if len(chunk.split()) < 5:
+            continue
+
+        # remove TOC-like chunks
+        if "contents" in chunk.lower():
+            continue
+
+        clean_chunks.append(chunk)
 
     documents.extend(clean_chunks)
 
-    # build embeddings safely
     if documents:
         vectors = vectorizer.fit_transform(documents)
 
@@ -28,42 +51,25 @@ def search(query):
     global vectors
 
     if vectors is None or len(documents) == 0:
-        return "No data available. Please upload or load content."
+        return "No data available."
 
     try:
-        query_lower = query.lower()
-
-        # remove small useless words
-        query_words = [w for w in query_lower.split() if len(w) > 3]
-
-        # STEP 1: filter relevant sections
-        filtered_indices = [
-            i for i, doc in enumerate(documents)
-            if any(word in doc.lower() for word in query_words)
-        ]
-
-        # fallback
-        if not filtered_indices:
-            filtered_indices = list(range(len(documents)))
-
-        # STEP 2: similarity search
+        # vectorize query
         query_vec = vectorizer.transform([query])
 
+        # similarity
         scores = cosine_similarity(query_vec, vectors)[0]
 
-        # only filtered docs
-        filtered_scores = [(i, scores[i]) for i in filtered_indices]
+        # best result
+        best_index = np.argmax(scores)
 
-        # sort best match
-        filtered_scores.sort(key=lambda x: x[1], reverse=True)
+        # confidence check
+        if scores[best_index] < 0.1:
+            return "No relevant answer found."
 
-        # BEST MATCH ONLY
-        best_index = filtered_scores[0][0]
+        answer = documents[best_index]
 
-        answer = documents[best_index].replace("\n", " ").strip()
-
-        # short clean response
         return answer[:500]
 
     except Exception as e:
-        return f"Error processing query: {str(e)}"
+        return f"Error: {str(e)}"
