@@ -3,9 +3,6 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# =========================
-# GLOBAL STORAGE
-# =========================
 documents = []
 
 vectorizer = TfidfVectorizer(
@@ -17,119 +14,119 @@ vectors = None
 
 
 # =========================
-# TEXT CLEANING
+# CLEAN TEXT
 # =========================
 def clean_text(text):
-    # remove dotted lines
+
     text = re.sub(r'\.{2,}', ' ', text)
 
-    # remove page numbers like 1.1 / 2 / 3.4
     text = re.sub(r'\b\d+(\.\d+)*\b', ' ', text)
 
-    # remove extra spaces/newlines
     text = re.sub(r'\s+', ' ', text)
 
     return text.strip()
 
 
 # =========================
+# SMART CHUNKING
+# =========================
+def split_into_chunks(text):
+
+    # split by lines
+    raw_chunks = text.split("\n")
+
+    chunks = []
+
+    current_chunk = ""
+
+    for line in raw_chunks:
+
+        line = clean_text(line)
+
+        if not line:
+            continue
+
+        # new topic starts
+        if len(line.split()) < 8 and current_chunk:
+
+            chunks.append(current_chunk.strip())
+
+            current_chunk = line + " "
+
+        else:
+            current_chunk += line + " "
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
+
+# =========================
 # ADD DOCUMENTS
 # =========================
-def add_documents(chunks):
+def add_documents(text):
+
     global documents, vectors
+
+    chunks = split_into_chunks(text)
 
     clean_chunks = []
 
     for chunk in chunks:
 
-        if not chunk.strip():
-            continue
-
-        chunk = clean_text(chunk)
-
         lower_chunk = chunk.lower()
 
-        # skip very tiny chunks
         if len(chunk.split()) < 5:
             continue
 
-        # remove table of contents
         if "contents" in lower_chunk:
-            continue
-
-        # remove useless chapter headings
-        if "chapter" in lower_chunk and len(chunk.split()) < 15:
             continue
 
         clean_chunks.append(chunk)
 
-    # IMPORTANT:
-    # Replace old documents completely
+    # replace old docs
     documents = clean_chunks
 
-    # build vectors
-    if documents:
-        vectors = vectorizer.fit_transform(documents)
-    else:
-        vectors = None
+    vectors = vectorizer.fit_transform(documents)
 
 
 # =========================
-# SEARCH FUNCTION
+# SEARCH
 # =========================
 def search(query):
+
     global vectors, documents
 
-    # no data check
-    if vectors is None or len(documents) == 0:
-        return "No data available. Please upload a document."
-
-    try:
-        query = clean_text(query)
-
-        # query vector
-        query_vec = vectorizer.transform([query])
-
-        # cosine similarity
-        scores = cosine_similarity(query_vec, vectors)[0]
-
-        # best match index
-        best_index = np.argmax(scores)
-
-        # confidence score
-        best_score = scores[best_index]
-
-        # low confidence protection
-        if best_score < 0.1:
-            return "No relevant answer found."
-
-        # get answer
-        answer = documents[best_index]
-
-        # clean final response
-        answer = answer.replace("\n", " ").strip()
-
-        return answer[:700]
-
-    except Exception as e:
-        return f"Error processing query: {str(e)}"
-
-
-# =========================
-# OPTIONAL DEBUG FUNCTION
-# =========================
-def debug_search(query):
-    global vectors, documents
+    if vectors is None:
+        return "No document uploaded."
 
     query_vec = vectorizer.transform([query])
 
     scores = cosine_similarity(query_vec, vectors)[0]
 
-    top_indices = np.argsort(scores)[::-1][:5]
+    best_index = np.argmax(scores)
 
-    print("\nTOP MATCHES:\n")
+    best_score = scores[best_index]
 
-    for idx in top_indices:
-        print(f"Score: {scores[idx]:.4f}")
-        print(documents[idx][:300])
-        print("-" * 50)
+    if best_score < 0.1:
+        return "No relevant answer found."
+
+    answer = documents[best_index]
+
+    # return only relevant portion
+    sentences = answer.split(". ")
+
+    final_answer = []
+
+    query_words = query.lower().split()
+
+    for sentence in sentences:
+
+        if any(word in sentence.lower() for word in query_words):
+            final_answer.append(sentence)
+
+    if final_answer:
+        return ". ".join(final_answer[:3])
+
+    return answer[:500]
